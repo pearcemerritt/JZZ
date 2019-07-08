@@ -1,11 +1,14 @@
 (function(global, factory) {
   if (typeof exports === 'object' && typeof module !== 'undefined') {
+    console.log('if');
     module.exports = factory();
   }
   else if (typeof define === 'function' && define.amd) {
+    console.log('else if');
     define('JZZ', [], factory);
   }
   else {
+    console.log('else');
     if (!global) global = window;
     if (global.JZZ && global.JZZ.MIDI) return;
     global.JZZ = factory();
@@ -13,6 +16,7 @@
 })(this, function() {
 
   var _scope = typeof window === 'undefined' ? global : window;
+  console.log('_scope: ', _scope);
   var _version = '0.8.4';
   var i, j, k, m, n;
 
@@ -32,6 +36,8 @@
     this._err = [];
   }
   _R.prototype._exec = function() {
+    console.log('_R.prototype._exec');
+    console.log('this: ', this);
     while (this._ready && this._queue.length) {
       var x = this._queue.shift();
       if (this._orig._bad) {
@@ -106,17 +112,27 @@
   };
 
   function _tryAny(arr) {
+    console.log('_tryAny');
+    console.log('arr: ', arr);
     if (!arr.length) {
       this._break();
       return;
     }
     var func = arr.shift();
+    // there's some functions left to try in the array
     if (arr.length) {
+      // yikes! we're assuming this function will be called with a `this` arg that has a _slip function property
+      // TODO: why not just explicitly say that you need the queue in the args?...
       var self = this;
+      // put _tryAny back on the front of the queue with the remaining args
       this._slip(_or, [ function() { _tryAny.apply(self, [arr]); } ]);
     }
     try {
+      // again with the `this` O.o
       this._repair();
+      console.log('func: ', func);
+      console.log('this: ', this);
+      // again with the `this` O.o
       func.apply(this);
     }
     catch (err) {
@@ -216,6 +232,9 @@
   }
   function _refresh() {
     this._slip(_postRefresh, []);
+    console.log('_refresh');
+    console.log('_engine: ', _engine);
+    console.log('_engine._refresh: ', _engine._refresh);
     _engine._refresh(this);
   }
   _J.prototype.refresh = function() {
@@ -511,6 +530,8 @@
 
   // Node.js
   function _tryNODE() {
+    console.log('_tryNODE');
+    console.log('module', module);
     if (typeof module != 'undefined' && module.exports) {
       _initNode(require('jazz-midi'));
       return;
@@ -578,6 +599,7 @@
   }
   // Web-extension
   function _tryCRX() {
+    console.log('_tryCRX');
     var self = this;
     var inst;
     var msg;
@@ -597,7 +619,10 @@
         self._crash();
       }
     }
+    console.log('pre pause');
     this._pause();
+    console.log('post pause');
+    console.log('document: ', document);
     document.addEventListener('jazz-midi-msg', eventHandle);
     try { document.dispatchEvent(new Event('jazz-midi')); } catch (err) {}
     setTimeout(function() { if (!inst) self._crash(); }, 0);
@@ -609,6 +634,7 @@
     setTimeout(function() { self._crash(); }, 0);
   }
 
+  // doesn't actually filter anything
   function _filterEngines(opt) {
     var ret = [];
     var arr = _filterEngineNames(opt);
@@ -625,9 +651,11 @@
     return ret;
   }
 
+  // doesn't actually filter anything
   function _filterEngineNames(opt) {
     var web = ['node', 'extension', 'plugin', 'webmidi'];
     if (!opt || !opt.engine) return web;
+    // get the engine options passed in as an array
     var arr = opt.engine instanceof Array ? opt.engine : [opt.engine];
     var dup = {};
     var none;
@@ -637,27 +665,41 @@
     var i;
     for (i = 0; i < arr.length; i++) {
       var name = arr[i].toString().toLowerCase();
+      // avoid dupes
       if (dup[name]) continue;
       dup[name] = true;
       if (name === 'none') none = true;
+      // if they entered the word 'etc' or an empty space, we set etc flag
       if (name === 'etc' || typeof name == 'undefined') etc = true;
+      // push onto head until we've set the etc flag, then only push onto tail
       if (etc) tail.push(name); else head.push(name);
+      // remove the name from web if explicitly listed in options
       _pop(web, name);
     }
+    // TODO: bug? could be that an array with one undefined elt would get us here to say none is false
+    // if there are any names, then none isn't actually true, even if they said it was explicitly in options
     if (etc || head.length || tail.length) none = false;
+    // TODO: bug? if etc is false, shouldn't tail always be empty???
+    // if it really was none, then return [] otherwise return the list with missing `web` names at end
     return none ? [] : head.concat(etc ? web : tail);
   }
 
   function _initJZZ(opt) {
     _initAudioContext();
     _jzz = new _J();
+    console.log('_jzz post new:', _jzz);
     _jzz._options = opt;
     _jzz._push(_tryAny, [_filterEngines(opt)]);
+    console.log('_jzz post push tryAny: ', _jzz);
+    console.log('_engine pre _.jzz.refresh: ', _engine);
     _jzz.refresh();
+    console.log('_engine post _.jzz.refresh: ', _engine);
+    console.log('_jzz post push refresh:', _jzz);
     _jzz._resume();
   }
 
   function _initNONE() {
+    console.log('_initNONE');
     _engine._type = 'none';
     _engine._sysex = true;
     _engine._refresh = function() { _engine._outs = []; _engine._ins = []; };
@@ -816,6 +858,8 @@
   }
 
   function _initNode(obj) {
+    console.log('_initNode');
+    console.log('obj: ', obj);
     _engine._type = 'node';
     _engine._main = obj;
     _engine._pool = [];
@@ -2119,9 +2163,14 @@
   };
   var _ac;
   function _initAudioContext() {
+    console.log('_initAudioContext');
     if (!_ac && typeof window !== 'undefined') {
+      console.log('_initAudioContext if');
+      console.log('window: ', window);
       var AudioContext = window.AudioContext || window.webkitAudioContext;
+      console.log('AudioContext: ', AudioContext);
       if (AudioContext) {
+        console.log('if (AudioContext)');
         _ac = new AudioContext();
         if (_ac && !_ac.createGain) _ac.createGain = _ac.createGainNode;
         var _activateAudioContext = function() {
